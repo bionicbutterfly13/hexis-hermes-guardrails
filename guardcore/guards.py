@@ -375,8 +375,8 @@ def evaluate(
                 "message": (
                     f"[hexis:{key}] Blocked: {reason}. "
                     f"Command: {safe_cmd}. "
-                    f"Set plugins.entries.hexis.guards.{key} to 'warn' or 'off' "
-                    "in config.yaml to change this."
+                    f"Set guard '{key}' to 'warn' or 'off' in your hexis "
+                    "guardrails config to change this."
                 ),
             }
 

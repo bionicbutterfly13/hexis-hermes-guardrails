@@ -67,28 +67,46 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
-def state_dir() -> Path:
-    """Return the profile-local hexis state directory.
+# A platform adapter sets the durable state location; the CORE never assumes a
+# platform (no hermes_constants, no HERMES_HOME). This is the one piece of
+# platform knowledge that was lifted out of the core into the adapters.
+_STATE_DIR_OVERRIDE: Optional[Path] = None
 
-    NEVER raises. If the profile dir cannot be created (read-only home, ENOSPC,
-    permission error), fall back to a temp dir; if even that fails, return the
-    intended path uncreated (callers already swallow write errors). The guard
-    block path must never fail just because state cannot be written.
+
+def set_state_dir(path) -> None:
+    """Point the durable logs at *path*. Called by a platform adapter at init.
+
+    Pass ``None`` to clear the override and fall back to env / default.
     """
-    try:
-        from hermes_constants import get_hermes_home  # type: ignore
+    global _STATE_DIR_OVERRIDE
+    _STATE_DIR_OVERRIDE = Path(path) if path is not None else None
 
-        home = Path(get_hermes_home())
-    except Exception:  # pragma: no cover - defensive
-        home = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
-    d = home / "plugins" / "hexis" / "state"
+
+def state_dir() -> Path:
+    """Return the durable state directory. NEVER raises.
+
+    Resolution order:
+      1. an explicit override set by an adapter (``set_state_dir``),
+      2. ``$GUARDCORE_STATE_DIR``,
+      3. ``~/.hexis-guardrails/state`` (platform-neutral default).
+
+    If the chosen path cannot be created (read-only home, ENOSPC, permission
+    error), fall back to a temp dir; if even that fails, return the intended path
+    uncreated (callers already swallow write errors). The guard block path must
+    never fail just because state cannot be written.
+    """
+    if _STATE_DIR_OVERRIDE is not None:
+        d = _STATE_DIR_OVERRIDE
+    else:
+        env = os.environ.get("GUARDCORE_STATE_DIR")
+        d = Path(env) if env else (Path.home() / ".hexis-guardrails" / "state")
     try:
         d.mkdir(parents=True, exist_ok=True)
         return d
     except Exception as exc:  # pragma: no cover - defensive
-        logger.debug("hexis: state dir %s not creatable (%s); temp fallback", d, exc)
+        logger.debug("guardcore: state dir %s not creatable (%s); temp fallback", d, exc)
     try:
-        fallback = Path(tempfile.gettempdir()) / "hexis-state"
+        fallback = Path(tempfile.gettempdir()) / "hexis-guardrails-state"
         fallback.mkdir(parents=True, exist_ok=True)
         return fallback
     except Exception:  # pragma: no cover - defensive

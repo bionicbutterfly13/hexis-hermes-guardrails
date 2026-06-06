@@ -26,16 +26,19 @@ INSTALL_DIR="$HERMES_HOME/plugins/hexis"
 
 mkdir -p "$HERMES_HOME/plugins"
 cp -R "$SRC" "$INSTALL_DIR"
+# Vendor the shared core alongside the adapter (mirrors scripts/install.sh).
+cp -R "$ROOT/guardcore" "$INSTALL_DIR/guardcore"
+rm -rf "$INSTALL_DIR/__pycache__" "$INSTALL_DIR/guardcore/__pycache__"
 
-for f in plugin.yaml __init__.py guards.py stuck.py violations.py SKILL.md; do
+for f in plugin.yaml __init__.py SKILL.md \
+         guardcore/__init__.py guardcore/guards.py guardcore/stuck.py \
+         guardcore/violations.py guardcore/hook.py; do
   test -f "$INSTALL_DIR/$f"
 done
 
 python3 -m py_compile \
   "$INSTALL_DIR/__init__.py" \
-  "$INSTALL_DIR/guards.py" \
-  "$INSTALL_DIR/stuck.py" \
-  "$INSTALL_DIR/violations.py"
+  "$INSTALL_DIR"/guardcore/*.py
 
 PYTHONPATH="$HERMES_HOME/plugins${PYTHONPATH:+:$PYTHONPATH}" \
 HERMES_HOME="$HERMES_HOME" \

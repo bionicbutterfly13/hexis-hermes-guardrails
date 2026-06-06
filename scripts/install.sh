@@ -18,10 +18,17 @@ if [ ! -d "$SRC" ]; then
 fi
 
 mkdir -p "$DEST"
-# Copy only the plugin files — never touch DEST/state/ (runtime violation logs).
-for f in __init__.py guards.py stuck.py violations.py plugin.yaml README.md SKILL.md; do
+# Copy the Hermes adapter files — never touch DEST/state/ (runtime violation logs).
+for f in __init__.py plugin.yaml README.md SKILL.md; do
   cp "$SRC/$f" "$DEST/$f"
 done
+# Vendor the shared core alongside the adapter so the directory plugin is
+# self-contained (the adapter adds its own dir to sys.path to import guardcore).
+rm -rf "$DEST/guardcore"
+cp -R "$ROOT/guardcore" "$DEST/guardcore"
+rm -rf "$DEST/guardcore/__pycache__"
+# Remove legacy core files left by older installs (now provided by guardcore/).
+rm -f "$DEST/guards.py" "$DEST/stuck.py" "$DEST/violations.py"
 
 echo "Installed hexis plugin -> $DEST"
 echo "(runtime state/ preserved if it already existed)"

@@ -14,9 +14,17 @@ README.md and guards.py for the bypass caveats.
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from pathlib import Path
 
-from . import guards, stuck, violations
+# Import the shared, platform-agnostic core. When this plugin is installed into a
+# Hermes profile the installer vendors ``guardcore`` alongside this file, so add
+# our own dir to sys.path to resolve it; in a source checkout it imports normally.
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+from guardcore import guards, stuck, violations  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +129,24 @@ def _on_session_end(session_id="", **kwargs):
     return None
 
 
+def _set_hermes_state_dir():
+    """Point guardcore's durable logs at the Hermes profile (the adapter owns this).
+
+    This is the Hermes-specific knowledge that was lifted OUT of the core: the
+    core never imports hermes_constants or reads HERMES_HOME — the Hermes adapter
+    resolves the profile path and tells the core where to write.
+    """
+    try:
+        from hermes_constants import get_hermes_home  # type: ignore
+
+        home = Path(get_hermes_home())
+    except Exception:  # pragma: no cover - defensive
+        home = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
+    violations.set_state_dir(home / "plugins" / "hexis" / "state")
+
+
 def register(ctx):
+    _set_hermes_state_dir()
     ctx.register_hook("pre_tool_call", _pre_tool_call)
     ctx.register_hook("post_tool_call", _post_tool_call)
     ctx.register_hook("transform_tool_result", _transform_tool_result)

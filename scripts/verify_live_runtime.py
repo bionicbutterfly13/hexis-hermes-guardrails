@@ -300,13 +300,16 @@ def main() -> int:
 # the validator never hard-codes ~/.hermes/plugins/hexis/state.               #
 # --------------------------------------------------------------------------- #
 def _load_hexis_module():
-    """Import the live-installed hexis package (the one Hermes actually loads)."""
+    """Import the violations module the live plugin actually uses.
+
+    After discover_plugins() loads the Hermes adapter, the adapter has put its
+    vendored guardcore on sys.path, so ``guardcore.violations`` is the exact
+    module the runtime writes through. Fall back to the legacy in-plugin module
+    name for older installs.
+    """
     import importlib
 
-    # After discover_plugins(), the loader has imported it as
-    # hermes_plugins.hexis. Prefer that exact module so we read the SAME
-    # violations.py the runtime used.
-    for name in ("hermes_plugins.hexis.violations",):
+    for name in ("guardcore.violations", "hermes_plugins.hexis.violations"):
         try:
             return importlib.import_module(name)
         except Exception:
